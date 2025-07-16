@@ -101,17 +101,16 @@
       levelResult.textContent = `${name} さんのレベルは ${levelText} です！`;
       messageEl.textContent = messages[level] || "";
 
-      fetch("https://script.google.com/macros/s/AKfycbyVU5JQ0lnVqLcHMhYJA4wyG6BAH5pvx4i7oBzoWi42RI5BsUT5VUcwImYj3cCEKiYh/exec", {
+      fetch("https://script.google.com/macros/s/AKfycbwhVPRr2vPsfxfRID04r7PXuve8mCyQ357peZhuE5Y1ppvwTHGyHGhJymbwGr-3yDeI/exec", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name,
           level: levelText
         })
-      }).then(response => console.log("送信完了"))
-        .catch(err => console.error("送信エラー", err));
+      })
+      .then(response => console.log("送信完了"))
+      .catch(err => console.error("送信エラー", err));
 
       resultDiv.style.display = "block";
     }
