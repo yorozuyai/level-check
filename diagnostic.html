@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>プロジェクト参加レベル診断</title>
+</head>
+<body>
+  <h1>プロジェクト参加レベル診断</h1>
+
+  <div id="questionnaire">
+    <p>あなたのSlack名（本名可）を入力してください:</p>
+    <input type="text" id="name" required><br><br>
+
+    <div id="questions" style="display:none;">
+      <p id="question"></p>
+      <button onclick="answer(true)">はい</button>
+      <button onclick="answer(false)">いいえ</button>
+    </div>
+
+    <button onclick="start()">スタート</button>
+  </div>
+
+  <div id="result" style="display:none;">
+    <p id="levelResult"></p>
+    <p id="message"></p>
+  </div>
+
+  <script>
+    const questions = [
+      "【Lv1 [Infra]】Pythonの基本的なコードを自分で書いて実行できますか？",
+      "【Lv2 [Infra]】GitHubからコードをcloneしてGoogle Colabで実行できますか？",
+      "【Lv3 [Model]】transformersライブラリで簡単な推論（例: テキスト生成、thinkタグ出力）を実行し、簡易 Prompt Engineering（thinkタグ考慮）できますか？",
+      "【Lv4 [Data]】pandasなどのライブラリを使ってデータセットを扱い、データキュレーション（公開データ限定）、データ合成（ホワイトリストモデル使用）、LLM as a judge（ホワイトリストモデルで評価）、Hugging Face datasetsライブラリでのアップロード/ダウンロード、形式変換、BeautifulSoupでのウェブ収集（OSS適合データのみ）の経験がありますか？",
+      "【Lv5 [Model]】自分でデータセットを用意して、Hugging Faceのチュートリアルでfine-tuning（SFT/RL）を実行できますか？",
+      "【Lv6 [Infra]】gitを用いたチーム開発や、Docker / Python仮想環境（Conda）の整備、Slurmジョブ（srun/sbatch）の基本運用ができますか？",
+      "【Lv7 [Model]】LoRA / QLoRAを活用して効率的にfine-tuningができ、Wandbで学習ログをモニタリングできますか？",
+      "【Lv8 [Eval]】安全性評価ベンチマーク（Do-Not-Answer）のスクリプト実行や、thinkタグを考慮した部分点評価のテストができますか？",
+      "【Lv9 [Infra]】vLLM上でモデル動作確認をし、推論スクリプトを設計・運用（Slurmバッチジョブ経由）できますか？",
+      "【Lv10 [Model][Infra]】PyTorchやAccelerateを使い、分散学習やマルチGPU（H100）でモデルをトレーニングできますか？"
+    ];
+
+    const messages = {
+      0: "これから一緒に学んでいきましょう。簡単な作業補助（ルール確認のチャット、Notion整備、進捗管理）や環境慣れ（Python基本実行）をお願いします。不安があればいつでも相談してくださいね😊",
+      1: "ツールの整備（Notionでのルールまとめ）、ドキュメント確認（手順書やWiki）、簡単なスクリプト動作テストをお願いします😊",
+      2: "Colabノートブックの実行確認、git clone手順の修正、操作手順の資料作成（スクリーンショット含む）をお願いします🙏",
+      3: "スクリプトの簡単編集（パラメータ変更、thinkタグ追加）、基本プロンプト改善、サンプルコードの動作確認をお願いします😊",
+      4: "データ整備（pandas使用のフォーマット統一、ラベル付け、公開データ限定のキュレーション）、データ合成（ホワイトリストモデル使用）、LLM as a judgeテスト（ホワイトリストモデルで）、Hugging Face datasetsでのアップロード/ダウンロード、形式変換、BeautifulSoupでのウェブ収集（OSS適合データのみ）をお願いします✨",
+      5: "データセット準備に基づくHugging Faceチュートリアルでのfine-tuning実践、評価ツール（BLEU/ROUGE）の試用をお願いします👍",
+      6: "git運用補助（Pull Request確認、簡易レビュー）、Conda仮想環境整備、Slurmジョブ（srun/sbatch）の基本セットアップとリファクタリングをお願いします😊",
+      7: "LoRA/QLoRA活用のfine-tuning、Wandbログモニタリング整備、シングルノードでのvLLM APIテスト実施をお願いします✨",
+      8: "Do-Not-Answerベンチマークのスクリプト実行、thinkタグ考慮の評価テスト、データ前処理最適化（公開データ限定）をお願いします👍",
+      9: "Slurmバッチジョブ経由のvLLM推論環境構築（多ノード対応）、ジョブパイプライン整備（VPN/SSHログイン含む）、アーキテクチャ設計をお願いします😊",
+      10: "分散学習環境構築（DeepSpeedなど、H100マルチGPU対応）、トレーニング最適化（ハイパーパラメータ調整）、論文再現実験をお願いします✨（注: Lv10以上の方は、CUDA最適化や自作モデルアーキテクチャ（ホワイトリストベース）の設計、蒸留/マージ手法の適用をお任せする可能性があります。）"
+    };
+
+    let current = 0;
+    let level = 0;
+
+    const nameInput = document.getElementById("name");
+    const questionEl = document.getElementById("question");
+    const questionsDiv = document.getElementById("questions");
+    const resultDiv = document.getElementById("result");
+    const levelResult = document.getElementById("levelResult");
+    const messageEl = document.getElementById("message");
+
+    function start() {
+      if (!nameInput.value.trim()) {
+        alert("Slack名を入力してください！");
+        return;
+      }
+      document.querySelector("button[onclick='start()']").style.display = "none";
+      questionsDiv.style.display = "block";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      if (current < questions.length) {
+        questionEl.textContent = questions[current];
+      }
+    }
+
+    function answer(isYes) {
+      if (isYes) {
+        level = current + 1;
+      } else {
+        finish();
+        return;
+      }
+      current++;
+      if (current === questions.length) {
+        finish();
+      } else {
+        showQuestion();
+      }
+    }
+
+    function finish() {
+      questionsDiv.style.display = "none";
+      const name = nameInput.value;
+      const levelText = (level === 0) ? "Lv1未満" : `Lv${level}`;
+      levelResult.textContent = `${name} さんのレベルは ${levelText} です！`;
+      messageEl.textContent = messages[level] || "";
+
+      fetch("https://script.google.com/macros/s/AKfycbyVU5JQ0lnVqLcHMhYJA4wyG6BAH5pvx4i7oBzoWi42RI5BsUT5VUcwImYj3cCEKiYh/exec", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: name,
+          level: levelText
+        })
+      }).then(response => console.log("送信完了"))
+        .catch(err => console.error("送信エラー", err));
+
+      resultDiv.style.display = "block";
+    }
+  </script>
+</body>
+</html>
